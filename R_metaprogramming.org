@@ -3,8 +3,10 @@
 :END:
 
 #+BEGIN_SRC R
-library(purrr)
+library(rlang)
+library(tidyverse)
 library(magrittr)
+library(pipeR)
 #+END_SRC
 
 * A Spoonful of Metaprogramming
@@ -12,16 +14,9 @@ library(magrittr)
 
 * What?
 
-  Metaprogramming is a programming technique in which computer programs have the ability to treat programs as their data.
-  It means that a program can be designed to read, generate, analyze or transform other programs, and even modify itself while running.
-
-** In other words, code is data, data is code
-
-   This all sounds very fancy, but it is not so crazy
-
-   In R we mainly focus on the idea that we can write what we want programmatically, and then evaluate it
-
-   This presentation will be example-driven (but not necessarily pragmatic)
+A language that supports metaprogramming is a language that supports programming itself. This could mean many things, but here we are going to focus on 2 aspects:
+** Code is data, data is code
+** The programming language itself is programmable
 
 * Manipulating Functions
 
@@ -40,46 +35,273 @@ body(f)
 environment(f)
 #+END_SRC
 
-#+RESULTS:
-$x
-x
-<environment: R_GlobalEnv>
-
 ** Formals
 
    Formals are a list, so we can treat it as such:
 
 #+BEGIN_SRC R
 ## define multi-parameter function
-(g <- function(x, y, z) x + y + z)
+(g <- function(x, y, z) (x + y) / z)
+
+g(1, 2, 3)
 
 ## look at formals
 formals(g)
 
-## change the formals
-formals(g) %<>% map(function(input) input = runif(1))
+## mess with it
+rev_forms <- function(fun) {
+    formals(fun) <- rev(formals(fun))
+    fun
+}
 
-## see how the function changed
+(g <- rev_forms(g))
+
+g(1, 2, 3)
+
+## make it more interesting : add some variables
+formals(g) %<>% append(list("a" = missing_arg(),
+                         "b" = missing_arg(),
+                         "c" = missing_arg()))
+
 g
-g()
 
-## make it more interesting
-formals(g) %<>% map2(list(runif, rexp, rcauchy),
-                  ~ {formals(g)[[.x]] <- .y})
+## add global scope variables
+w <- runif(1)
+
+formals(g)$c <- w
 
 g
-
-formals(g) %<>% map(~ .x(5))
-
-g()
 #+END_SRC
 
-* Manipulating Environments
+It is worth noting here, that when you pass a function an argument, it is technically a data structure called a promise. This means that it is not evaluated as soon as it is receieved. This will be important later.
+
+** Body
+
+   The function body is an expression
+
+#+BEGIN_SRC R
+## look at body
+body(g)
+
+## see how the data structure is put together
+body(g) %>% as.character
+
+body(g)[[1]]
+body(g)[[2]]
+body(g)[[3]]
+
+## modify it
+body(g)[[3]] <- quote(z + a + b + c)
+body(g)
+
+## evaluate our new expression
+g(1, 2, 3)
+
+## let c be evaluated by w
+g(1, 2, 3, 4, 5)
+
+## let c = 6
+g(1, 2, 3, 4, 5, 6)
+
+## check that it matches!
+(3 + 2) / (1 + 4 + 5 + 6)
+#+END_SRC
+
+We can even have a function find its own definition:
+
+#+BEGIN_SRC R
+f <- function(x = 5) {
+    y <- x + 10
+    sys.function()
+}
+
+f()
+
+body(f)
+
+body(f)[[2]] <- body(f)
+
+body(f)
+
+f()
+
+f <- function(x = 5) {
+    if (x == 0) sys.function()
+    else {
+        body(f)[[3]] <- body(f)
+        f(x - 1)
+    }
+}
+
+f(10)
+#+END_SRC
+
+** Environments
+
+   Environments are the scope in which the function is evaluated
+   
+#+BEGIN_SRC R
+environment()
+
+h <- function() {
+    environment()
+}
+
+h()
+
+## get parent environment
+parent.env(h())
+
+## these can be manipulated like lists, but they are really more like a hash table without collisions
+new_env <- new.env()
+new_env$x <- 1
+new_env$x
+
+## we can loop through and assign
+map2(state.abb, 1:50, ~ {new_env[[.x]] <- .y})
+
+## access each value by name
+new_env$MA
+
+## and get values as needed
+new_env %>% names()
+#+END_SRC
 
 * Manipulating Expressions
 
+We can capture code without evaluating it using expr()
+
+#+BEGIN_SRC R
+x <- 2
+y <- 0
+
+## quote!
+(z <- expr(y <- x * x * x * x * x))
+
+## unquote
+eval(z)
+
+y
+
+## we can also selectively quote subexpressions
+(z <- bquote(y <- .(x) + 256))
+
+y
+
+eval(z)
+
+y
+#+END_SRC
+
+What was done above is called quotation (the act of capturing an unevaluated expression) and unquotation (the ability to evaluate parts of an otherwise quoted expression). Together, this is referred to as *Quasiquotation*. 
+
+This is all over the place in R
+
+#+BEGIN_SRC R
+## ever wonder why this
+mtcars %>%
+    filter(qsec > 20)
+
+## is not this?
+mtcars %>% filter("qsec" > 20)
+
+## especially since
+qsec
+#+END_SRC
+
+Under the hood, we are taking the expression, and waiting to evaluate it until we have the proper environment to evaluate it in. In this case, our awaited environment is the dataset mtcars.
+
+This is an example of tidy evaluation. It combines quasiquotation, quosures (a data structure that captures an expression and its environment), and data masks (which allow an expression to be evaluated in the context of its dataset).
+
+* Do something here!
+  
+This is very practical, as it lets you use functions without quotes all over the place as well as reference things in different scopes and data masks.
+
+#+BEGIN_SRC R
+
+#+END_SRC
+
+You could also pass a string:
+
+#+BEGIN_SRC R
+plot_it <- function(.data, col_name) {
+    .data %>%
+        ggplot(aes(x = !!sym(col_name))) +
+        geom_density()
+}
+
+plot_it(mtcars, "hp")
+#+END_SRC
+
 * Substitutions
+
+  This is useful because we can do similar substitutions
+
+#+BEGIN_SRC R
+## we can coerce exprs to strings and manipulate them
+expr(y <- x + x + x + x + z) %>%
+    deparse() %>%
+    str_glue(" + z + z + z") %>%
+    parse_expr() -> new_expression
+
+x <- 2
+y <- 0
+z <- 1
+
+eval(new_expression)
+
+y
+#+END_SRC
+
+This idea means we can now make code 'data'
+
+#+BEGIN_SRC R
+mtcars %<>% 
+    ## get car names
+    as_tibble(rownames = "car_names")
+
+## generate a bunch of statements
+mtcars %>%
+    pull(1) %>%
+    ## get just makes
+    str_extract("^[A-Za-z]+") %>%
+    unique() %>>%
+    ## set names
+    (~ unique_names) %>%
+    ## 'build' out a string
+    map(~ .x %>% paste0("\"", ., "\" = ifelse(str_detect(car_names, \"", ., "\"), TRUE, FALSE)") %>% parse_expr()) %>%
+    set_names(unique_names) -> conditional_statements
+
+mtcars %>%
+    mutate(!!!conditional_statements) %>% glimpse
+#+END_SRC
+
+We can *quote* data, and the *unquote* it to make code
+
+Here are some other examples of me using this:
+
+- show peril explorer code
+- show salesforce matching code
 
 * Subsituting R Code for Other Code
 
+  It doesn't even need to be R code we can generate. We can use R's flexibility to create other types of code as well. A great example is *dbplyr*, which translates R code to SQL.
+
+#+BEGIN_SRC R
+library(dbplyr)
+
+## show a simple translation to sql
+
+## mtcars %>%
+##     simulate_
+#+END_SRC
+
+  Another great example is shiny, which generates html / css / javascript.
+
+#+BEGIN_SRC R
+## show shiny ui functions
+#+END_SRC
+
+Show sql output of peril explorer
+  
 * Example
