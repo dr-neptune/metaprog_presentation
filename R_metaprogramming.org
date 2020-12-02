@@ -1,0 +1,85 @@
+:PROPERTIES:
+:header-args: :session R-session :results output raw
+:END:
+
+#+BEGIN_SRC R
+library(purrr)
+library(magrittr)
+#+END_SRC
+
+* A Spoonful of Metaprogramming
+  (is good for what ails you)
+
+* What?
+
+  Metaprogramming is a programming technique in which computer programs have the ability to treat programs as their data.
+  It means that a program can be designed to read, generate, analyze or transform other programs, and even modify itself while running.
+
+** In other words, code is data, data is code
+
+   This all sounds very fancy, but it is not so crazy
+
+   In R we mainly focus on the idea that we can write what we want programmatically, and then evaluate it
+
+   This presentation will be example-driven (but not necessarily pragmatic)
+
+* Manipulating Functions
+
+  There are 3 parts of a function in R:
+
+#+BEGIN_SRC R
+f <- function(x) x + 25
+
+## formals
+formals(f)
+
+## body
+body(f)
+
+## environment
+environment(f)
+#+END_SRC
+
+#+RESULTS:
+$x
+x
+<environment: R_GlobalEnv>
+
+** Formals
+
+   Formals are a list, so we can treat it as such:
+
+#+BEGIN_SRC R
+## define multi-parameter function
+(g <- function(x, y, z) x + y + z)
+
+## look at formals
+formals(g)
+
+## change the formals
+formals(g) %<>% map(function(input) input = runif(1))
+
+## see how the function changed
+g
+g()
+
+## make it more interesting
+formals(g) %<>% map2(list(runif, rexp, rcauchy),
+                  ~ {formals(g)[[.x]] <- .y})
+
+g
+
+formals(g) %<>% map(~ .x(5))
+
+g()
+#+END_SRC
+
+* Manipulating Environments
+
+* Manipulating Expressions
+
+* Substitutions
+
+* Subsituting R Code for Other Code
+
+* Example
