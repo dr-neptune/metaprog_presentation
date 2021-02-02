@@ -1,7 +1,6 @@
 :PROPERTIES:
 :header-args: :session R-session :results output raw
 :END:
-
 #+BEGIN_SRC R
 library(rlang)
 library(tidyverse)
@@ -19,15 +18,27 @@ get_args <- function() {
 * A Spoonful of Metaprogramming
   (is good for what ails you)
 
+[[file:A_Spoonful_of_Metaprogramming/2020-12-03_12-58-11_screenshot.png]]
+
 * What?
 
-A language that supports metaprogramming is a language that supports programming itself. This could mean many things, but here we are going to focus on 2 aspects:
+  A language that supports metaprogramming is a language that supports programming itself. This could mean many things, but here we are going to focus on 2 aspects:
+  
 ** Code is data, data is code
+
 ** The programming language itself is programmable
+
+** Why?
+
+   fun mostly
+
+   ...and to expand the number of operations we can perform without thinking about them
 
 * Manipulating Functions
 
-  There are 3 parts of a function in R:
+[[file:Manipulating_Functions/2020-12-03_13-01-21_screenshot.png]]
+  
+There are 3 parts of a function in R:
 
 #+BEGIN_SRC R
 f <- function(x) x + 25
@@ -63,6 +74,8 @@ rev_forms <- function(fun) {
 
 (g <- rev_forms(g))
 
+g
+
 g(1, 2, 3)
 
 ## make it more interesting : add some variables
@@ -79,8 +92,6 @@ formals(g)$c <- w
 
 g
 #+END_SRC
-
-It is worth noting here, that when you pass a function an argument, it is technically a data structure called a promise. This means that it is not evaluated as soon as it is receieved. This will be important later.
 
 ** Body
 
@@ -99,13 +110,20 @@ body(g)[[3]]
 
 ## modify it
 body(g)[[3]] <- quote(z + a + b + c)
+
 body(g)
+
+g
 
 ## evaluate our new expression
 g(1, 2, 3)
 
 ## let c be evaluated by w
-g(1, 2, 3, 4, 5)
+g(z = 1,
+  y = 2,
+  x = 3,
+  a = 4,
+  b = 5)
 
 ## let c = 6
 g(1, 2, 3, 4, 5, 6)
@@ -119,6 +137,7 @@ We can even have a function find its own definition:
 #+BEGIN_SRC R
 f <- function(x = 5) {
     y <- x + 10
+    ## return definition of itself
     sys.function()
 }
 
@@ -126,6 +145,11 @@ f()
 
 body(f)
 
+body(f)[[1]]
+body(f)[[2]]
+body(f)[[3]]
+
+## what if we set our body of f to our body of f?
 body(f)[[2]] <- body(f)
 
 body(f)
@@ -148,8 +172,10 @@ f(10)
    Environments are the scope in which the function is evaluated
    
 #+BEGIN_SRC R
+## our current environment
 environment()
 
+## scope inside of the function
 h <- function() {
     environment()
 }
@@ -169,12 +195,15 @@ map2(state.abb, 1:50, ~ {new_env[[.x]] <- .y})
 
 ## access each value by name
 new_env$MA
+new_env$RI
 
 ## and get values as needed
 new_env %>% names()
 #+END_SRC
 
 * Manipulating Expressions
+
+[[file:Manipulating_Expressions/2020-12-03_13-04-28_screenshot.png]]
 
 We can capture code without evaluating it using expr()
 
@@ -184,6 +213,8 @@ y <- 0
 
 ## quote!
 (z <- expr(y <- x * x * x * x * x))
+
+z %>% typeof
 
 ## unquote
 eval(z)
@@ -200,7 +231,7 @@ eval(z)
 y
 #+END_SRC
 
-What was done above is called quotation (the act of capturing an unevaluated expression) and unquotation (the ability to evaluate parts of an otherwise quoted expression). Together, this is referred to as *Quasiquotation*. 
+What was done above is called quotation (the act of capturing an unevaluated expression) and unquotation (the ability to evaluate parts of an otherwise quoted expression). Together, this is referred to as *Quasiquotation*.
 
 This is all over the place in R
 
@@ -209,11 +240,11 @@ This is all over the place in R
 mtcars %>%
     filter(qsec > 20)
 
-## and not this?
+## and not have to do this?
 mtcars %>% filter(.[["qsec"]] > 20)
 
 ## or this?
-mtcars %>% filter(mtcars$qsec > 20) 
+mtcars %>% filter(mtcars$qsec > 20)
 
 ## especially since
 qsec
@@ -225,6 +256,8 @@ This is an example of tidy evaluation. It combines quasiquotation, quosures (a d
 
 * TidyEval
 
+[[file:TidyEval/2020-12-03_13-04-58_screenshot.png]]
+
 Tidyeval is very practical, as it lets you use functions without quotes all over the place as well as reference things in different scopes and data masks. It helps match expressions to environments. It helps create a more interactive workflow at the expense of having to know a bunch more things when writing functions.
 
 Pragmatically, you can use it to write functions that act on nested data (i.e., data in dataframes)
@@ -232,7 +265,7 @@ Pragmatically, you can use it to write functions that act on nested data (i.e., 
 #+BEGIN_SRC R
 ## if you're only doing 1 thing, you can use {{}}
 tally_it <- function(.data, column) {
-    .data %>% 
+    .data %>%
         group_by({{column}}) %>%
         tally(sort = TRUE)
 }
@@ -249,7 +282,7 @@ tally_it <- function(.data, ...) {
         tally(sort = TRUE)
 }
 
-mtcars %>% tally_it(mpg, hp, disp)
+mtcars %>% tally_it(mpg, hp, disp, cyl)
 
 ## you can even coerce strings to exprs beforehand
 tally_it <- function(.data, ...) {
@@ -278,11 +311,15 @@ plot_it <- function(.data, x, y) {
 }
 
 mtcars %>% plot_it(mpg, disp)
+mtcars %>% plot_it(mpg, hp)
 #+END_SRC
 
 * Substitutions
 
-  This is useful because we can do similar substitutions
+[[file:Substitutions/2020-12-03_13-05-32_screenshot.png]]
+
+  
+This is useful because we can do similar substitutions, but with all code
 
 #+BEGIN_SRC R
 ## we can coerce exprs to strings and manipulate them
@@ -303,9 +340,10 @@ y
 This idea means we can now make code 'data'
 
 #+BEGIN_SRC R
-mtcars %<>% 
+## preprocessing
+(mtcars %<>% 
     ## get car names
-    as_tibble(rownames = "car_names")
+    as_tibble(rownames = "car_names"))
 
 ## generate a bunch of statements
 mtcars %>%
@@ -316,14 +354,15 @@ mtcars %>%
     ## set names
     (~ unique_names) %>%
     ## 'build' out a string
-    map(~ .x %>% paste0("\"", ., "\" = ifelse(str_detect(car_names, \"", ., "\"), TRUE, FALSE)") %>% parse_expr()) %>%
+    map(~ .x %>% paste0("ifelse(str_detect(car_names, \"", ., "\"), TRUE, FALSE)") %>% parse_expr()) %>%
     set_names(unique_names) -> conditional_statements
 
 mtcars %>%
-    mutate(!!!conditional_statements) %>% glimpse
+    mutate(!!!conditional_statements) %>%
+    glimpse
 #+END_SRC
 
-We can *quote* data, and the *unquote* it to make code
+We can *quote* data to turn it into an expression, and then *unquote* it to make it into code
 
 We can do more with this by writing code that changes R code. In other languages, these are often called *macros*. 
 
@@ -335,7 +374,9 @@ mtcars %>%
     summarize(mean(mpg))
 
 ## this translates to the following
-summarize(filter(select(mtcars, mpg, cyl, disp, hp), cyl == 6), mean(mpg))
+summarize(
+    filter(
+        select(mtcars, mpg, cyl, disp, hp), cyl == 6), mean(mpg))
 #+END_SRC
 
 The pipe is an example of an infix operator. It takes arguments on both sides, and translates the code to a properly written function call. We can write our own:
@@ -353,21 +394,25 @@ rexp(3) %r% 3 %r% 4
 
 While the pipe is fantastic, it does replicate %>% over and over again at the end of each line. This is not that bad if you have a key-binding
 
-In clojure, they use prefix notation:
+In the clojure programming language, they use prefix notation:
 
 #+BEGIN_SRC clojure
+;; prefix notation
+(+ 1 2 3 4 5)
+
+;; this is the equivalent pipe
 (-> (load-data "xyz.csv")
-    (i/$ "those_columns")
-    (i/filter {:cyl {:eq 6}})
-    (i/mean :mpg))
+    ($ "those_columns")
+    (filter {:cyl {:eq 6}})
+    (mean :mpg))
 #+END_SRC
 
-We can create something similar in R (minus all those parentheses):
+We can create something similar in R minus all those parentheses:
 
 #+BEGIN_SRC R
-p_ <- function(f_1, ...) {
+p_ <- function(x, ...) {
     ## take in all our arguments as quoted expressions
-    enexprs(f_1, ...) %>%
+    enexprs(x, ...) %>%
         ## deparse them to turn them into strings! paste the pipe
         map_chr(~ deparse(.x) %>% str_glue(" %>% ")) %>%
         ## collapse to one string
@@ -382,6 +427,8 @@ p_ <- function(f_1, ...) {
 
 plus_n <- function(n) function(x) x + n
 
+plus_n(3)(2)
+
 x <- 1
 
 p_(x,
@@ -393,37 +440,97 @@ p_(mtcars,
    select(mpg, cyl, disp, hp),
    filter(cyl == 6),
    summarize(mean(mpg)))
+
+## walk through
+## take in all our arguments as quoted expressions
+exprs(mtcars,
+        select(mpg, cyl, disp, hp),
+        filter(cyl == 6),
+        summarize(mean(mpg))) %>%
+    ## deparse them to turn them into strings! paste the pipe
+    map_chr(~ deparse(.x) %>% str_glue(" %>% ")) %>%
+    ## collapse to one string
+    paste(collapse = "") %>%
+    ## add identity to the end (lazy hack)
+    str_glue("identity") %>%
+    ## parse the string back to a quoted expression
+    parse(text = .) %>%
+    ## evaluate it!
+    eval()
 #+END_SRC
 
 Of course here all we did was replace %>% with ,
 
 **The big idea is that we are not delegated to writing code according to the whims of the language designer, but we are the language designer**
 
-Here are some other examples of me using this:
-
-- show peril explorer code
-- show salesforce matching code
-
 * Generating Code with R
 
-  It doesn't even need to be R code we can generate. We can use R's flexibility to create other types of code as well. A great example is *dbplyr*, which translates R dplyr code to SQL.
+[[file:Generating_Code_with_R/2020-12-03_13-06-17_screenshot.png]]
+
+It doesn't even need to be R code that we generate. We can use R's flexibility to create other types of code as well. A great example is *dbplyr*, which translates R dplyr code to SQL.
 
 #+BEGIN_SRC R
 library(dbplyr)
 
-## show a simple translation to sql
+## generate sql
+mtcars %>%
+    lazy_frame(con = simulate_mssql()) %>%
+    select(mpg, cyl, disp, hp) %>%
+    filter(cyl == 6) %>%
+    summarize(mean(mpg)) %>%
+    show_query()
 
-## mtcars %>%
-##     simulate_
+## combine with metaprogramming, using sql primitives
+## generate a bunch of statements
+mtcars %>%
+    pull(1) %>%
+    ## get just makes
+    str_extract("^[A-Za-z]+") %>%
+    unique() %>>%
+    ## set names
+    (~ unique_names) %>%
+    ## 'build' out a string
+    map(~ .x %>% paste0("ifelse(car_names %like% \"", ., "\", TRUE, FALSE)") %>% parse_expr()) %>%
+    set_names(unique_names) -> conditional_statements
+
+## generate sql
+mtcars %>%
+    lazy_frame(con = simulate_mssql()) %>%
+    mutate(!!!conditional_statements) %>%
+    show_query()
 #+END_SRC
 
-  Another great example is shiny, which generates html / css / javascript.
+Another great example is shiny, which generates html / css / javascript.
 
 #+BEGIN_SRC R
-## show shiny ui functions
+library(shiny)
+
+(ui <- fluidPage(
+    titlePanel("title panel"),
+    sidebarLayout(
+        sidebarPanel("sidebar panel"),
+        mainPanel("main panel"))))
+
+div(h1(title()))
+sidebarPanel("Panel")
+mainPanel("Main Panel")
 #+END_SRC
 
-This mainly just hinges on returning built up strings as the result of functions.
-Show sql output of peril explorer
+* Other things to check out
+
+[[file:Other_things_to_check_out/2020-12-03_13-09-04_screenshot.png]]
   
-* Example
+  tidyeval
+  rlang
+  how calls work
+  how formulas work
+  how symbols work
+  how interpreters work
+  how compilers work
+
+** Resources to look into
+   Advanced R
+   Thomas Mailund's books on R
+   Lisp family programming languages
+   The Documentation (tm)
+  
