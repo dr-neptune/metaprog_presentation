@@ -21,7 +21,7 @@ get_args <- function() {
 [[file:A_Spoonful_of_Metaprogramming/2020-12-03_12-58-11_screenshot.png]]
 
 * What?
-
+ 
   A language that supports metaprogramming is a language that supports programming itself. This could mean many things, but here we are going to focus on 2 aspects:
   
 ** Code is data, data is code
@@ -520,17 +520,17 @@ mainPanel("Main Panel")
 
 [[file:Other_things_to_check_out/2020-12-03_13-09-04_screenshot.png]]
   
-  tidyeval
-  rlang
-  how calls work
-  how formulas work
-  how symbols work
-  how interpreters work
-  how compilers work
+  - tidyeval
+  - rlang
+  - how calls work
+  - how formulas work
+  - how symbols work
+  - how interpreters work
+  - how compilers work
 
 ** Resources to look into
-   Advanced R
-   Thomas Mailund's books on R
-   Lisp family programming languages
-   The Documentation (tm)
+   - Advanced R
+   - Thomas Mailund's books on R
+   - Lisp family programming languages
+   - The Documentation (tm)
   
